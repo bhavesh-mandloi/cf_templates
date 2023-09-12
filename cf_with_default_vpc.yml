@@ -1,0 +1,81 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Create SageMaker Domain and User in a specific VPC
+
+Resources:
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: SageMakerSecurityGroup
+      VpcId: v-1234567
+
+  SageMakerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sagemaker.amazonaws.com
+            Action: sts:AssumeRole
+
+  SageMakerRolePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: SageMakerRolePolicy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:GetObject
+              - s3:PutObject
+              - s3:ListBucket
+            Resource: '*'
+
+  SageMakerUser:
+    Type: AWS::IAM::User
+
+  SageMakerUserPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: SageMakerUserPolicy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - sagemaker:CreateDomain
+              - sagemaker:DeleteDomain
+              - sagemaker:CreateUserProfile
+              - sagemaker:DeleteUserProfile
+              - sagemaker:UpdateUserProfile
+              - sagemaker:CreateApp
+              - sagemaker:DeleteApp
+              - sagemaker:UpdateApp
+              - sagemaker:ListApps
+              - sagemaker:ListDomains
+              - sagemaker:ListUserProfiles
+              - sagemaker:CreatePresignedDomainUrl
+            Resource: '*'
+
+  SageMakerDomain:
+    Type: AWS::SageMaker::Domain
+    Properties:
+      AppNetworkAccessType: VpcOnly
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref SecurityGroup
+        SubnetIds:
+          - !Ref SubnetA
+          - !Ref SubnetB
+      DefaultUserSettings:
+        ExecutionRole: !GetAtt SageMakerRole.Arn
+
+Outputs:
+  SageMakerDomainName:
+    Description: The name of the SageMaker domain.
+    Value: !Ref SageMakerDomain
+  SageMakerUserArn:
+    Description: The ARN of the SageMaker user.
+    Value: !GetAtt SageMakerUser.Arn

@@ -1,0 +1,78 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Create SageMaker Domain, User, and S3 Bucket
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC ID where SageMaker Domain will be deployed
+
+Resources:
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: SageMakerSecurityGroup
+      VpcId: !Ref VpcId
+
+  SageMakerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sagemaker.amazonaws.com
+            Action: sts:AssumeRole
+
+  SageMakerRolePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: SageMakerRolePolicy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - sagemaker:CreateDomain
+              - sagemaker:DeleteDomain
+              - sagemaker:CreateUserProfile
+              - sagemaker:DeleteUserProfile
+              - sagemaker:UpdateUserProfile
+              - sagemaker:CreateApp
+              - sagemaker:DeleteApp
+              - sagemaker:UpdateApp
+              - sagemaker:ListApps
+              - sagemaker:ListDomains
+              - sagemaker:ListUserProfiles
+              - sagemaker:CreatePresignedDomainUrl
+            Resource: '*'
+
+  SageMakerDomain:
+    Type: AWS::SageMaker::Domain
+    Properties:
+      DomainName: sm-sg-vc
+      AuthMode: IAM
+      DefaultUserSettings:
+        ExecutionRole: !GetAtt SageMakerRole.Arn
+
+  SageMakerUser:
+    Type: AWS::SageMaker::UserProfile
+    Properties:
+      DomainId: !Ref SageMakerDomain
+      UserProfileName: test-user
+
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: sm-sg-bucket
+
+Outputs:
+  SageMakerDomainName:
+    Description: The name of the SageMaker Domain.
+    Value: !Ref SageMakerDomain
+  SageMakerUserName:
+    Description: The name of the SageMaker User.
+    Value: !Ref SageMakerUser
+  S3BucketName:
+    Description: The name of the S3 bucket.
+    Value: !Ref S3Bucket

@@ -1,0 +1,103 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Create SageMaker Domain and User in Default VPC
+
+Resources:
+  SageMakerVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+
+  SubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref SageMakerVPC
+      AvailabilityZone: !Select [0, !GetAZs '']
+
+  SubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref SageMakerVPC
+      AvailabilityZone: !Select [1, !GetAZs '']
+
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: SageMakerSecurityGroup
+      VpcId: !Ref SageMakerVPC
+
+  SageMakerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sagemaker.amazonaws.com
+            Action: sts:AssumeRole
+
+  SageMakerRolePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: SageMakerRolePolicy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:GetObject
+              - s3:PutObject
+              - s3:ListBucket
+            Resource:
+              - !Sub "arn:aws:s3:::your-sagemaker-data-bucket/*"
+              - !Sub "arn:aws:s3:::your-sagemaker-data-bucket"
+
+  SageMakerUser:
+    Type: AWS::IAM::User
+
+  SageMakerUserPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: SageMakerUserPolicy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - sagemaker:CreateDomain
+              - sagemaker:DeleteDomain
+              - sagemaker:CreateUserProfile
+              - sagemaker:DeleteUserProfile
+              - sagemaker:UpdateUserProfile
+              - sagemaker:CreateApp
+              - sagemaker:DeleteApp
+              - sagemaker:UpdateApp
+              - sagemaker:ListApps
+              - sagemaker:ListDomains
+              - sagemaker:ListUserProfiles
+            Resource: '*'
+          - Effect: Allow
+            Action:
+              - sagemaker:CreatePresignedDomainUrl
+            Resource: !Sub "arn:aws:sagemaker:${AWS::Region}:${AWS::AccountId}:domain/*"
+
+  SageMakerDomain:
+    Type: AWS::SageMaker::Domain
+    Properties:
+      AppNetworkAccessType: VpcOnly
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref SecurityGroup
+        SubnetIds:
+          - !Ref SubnetA
+          - !Ref SubnetB
+      DefaultUserSettings:
+        ExecutionRole: !GetAtt SageMakerRole.Arn
+
+Outputs:
+  SageMakerDomainName:
+    Description: The name of the SageMaker domain.
+    Value: !Ref SageMakerDomain
+  SageMakerUserArn:
+    Description: The ARN of the SageMaker user.
+    Value: !GetAtt SageMakerUser.Arn
